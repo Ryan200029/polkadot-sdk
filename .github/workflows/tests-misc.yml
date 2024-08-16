@@ -268,7 +268,7 @@ jobs:
 
   cargo-hfuzz:
     timeout-minutes: 20
-    needs: [ set-image, check-metadata-hash ]
+    needs: [ set-image ] # [ set-image, check-metadata-hash ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -288,6 +288,9 @@ jobs:
         --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
         --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
       - name: Run honggfuzz
         run: |
           cd substrate/primitives/arithmetic/fuzzer
@@ -305,7 +308,7 @@ jobs:
 
   cargo-check-each-crate:
     timeout-minutes: 120
-    needs: [ set-image, check-metadata-hash ]
+    needs: [ set-image ] # [ set-image, check-metadata-hash ]
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -320,6 +323,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
+
       - name: script
         run: |
-          export PYTHONUNBUFFERED=x time .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
+          PYTHONUNBUFFERED=x time .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
