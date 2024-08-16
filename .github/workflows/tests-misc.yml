@@ -33,7 +33,7 @@ jobs:
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
-    needs: [ set-image, changes ]
+    needs: [ set-image ]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
@@ -57,7 +57,7 @@ jobs:
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
     # into one job
-    needs: [ test-full-crypto-feature ]
+    needs: [ set-image, test-full-crypto-feature ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -78,7 +78,7 @@ jobs:
 
   test-frame-ui:
     timeout-minutes: 60
-    needs: [ test-frame-examples-compile-to-wasm ]
+    needs: [ set-image, test-frame-examples-compile-to-wasm ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -106,7 +106,7 @@ jobs:
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [ test-frame-ui ]
+    needs: [ set-image, test-frame-ui ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -129,6 +129,7 @@ jobs:
 
 
   cargo-check-benches:
+    needs: [ set-image ]
     timeout-minutes: 60
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
@@ -174,7 +175,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: paritytech/node-bench-regression-guard:latest
-    needs: [ cargo-check-benches ]
+    needs: [ set-image, cargo-check-benches ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
@@ -205,6 +206,7 @@ jobs:
 
 
   test-node-metrics:
+    needs: [ set-image ]
     timeout-minutes: 30
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
