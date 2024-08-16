@@ -239,7 +239,7 @@ jobs:
   # https://github.com/paritytech/substrate/pull/6916
   check-tracing:
     timeout-minutes: 20
-    needs: [ set-image ]
+    needs: [ set-image, test-node-metrics ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -254,7 +254,7 @@ jobs:
 
   check-metadata-hash:
     timeout-minutes: 20
-    needs: [ set-image ]
+    needs: [ set-image, check-tracing ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
