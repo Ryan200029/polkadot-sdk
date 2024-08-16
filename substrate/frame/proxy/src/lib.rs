@@ -163,6 +163,15 @@ pub mod pallet {
 		type CallHasher: Hash;
 	}
 
+	/// Reasons the pallet may place funds on hold.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as storage deposit for a pure Proxy.
+		Proxy,
+		/// The funds are held as storage deposit for an announcement.
+		Annoucement,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Dispatch the given `call` from an account that the sender is authorised for through

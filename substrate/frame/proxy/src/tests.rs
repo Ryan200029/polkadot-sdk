@@ -26,10 +26,10 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{fungible::HoldConsideration, ConstU32, Contains},
 };
 use sp_core::H256;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
+use sp_runtime::{traits::{BlakeTwo256, Convert}, BuildStorage, DispatchError, RuntimeDebug};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -114,19 +114,52 @@ impl Contains<RuntimeCall> for BaseFilter {
 		}
 	}
 }
+
+#[derive(Default)]
+pub struct ConvertDeposit;
+impl Convert<Footprint, <Test as pallet_balances::Config>::Balance> for ConvertDeposit {
+	fn convert(a: Footprint) -> <Test as pallet_balances::Config>::Balance {
+		a.size
+	}
+}
+
+#[derive(Default)]
+struct AnnoucementHoldReason;
+impl Get<RuntimeHoldReason> for AnnoucementHoldReason {
+	fn get() -> RuntimeHoldReason {
+		RuntimeHoldReason::Proxy(crate::HoldReason::Annoucement)
+	}
+}
+
+#[derive(Default)]
+struct ProxyHoldReason;
+impl Get<RuntimeHoldReason> for ProxyHoldReason {
+	fn get() -> RuntimeHoldReason {
+		RuntimeHoldReason::Proxy(crate::HoldReason::Proxy)
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();
 	type CallHasher = BlakeTwo256;
 	type MaxPending = ConstU32<2>;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
+	type ProxyConsideration = HoldConsideration<
+		<Test as frame_system::Config>::AccountId,
+		Balances,
+		ProxyHoldReason,
+		ConvertDeposit,
+	>;
+	type AnnoucementConsideration = HoldConsideration<
+		<Test as frame_system::Config>::AccountId,
+		Balances,
+		AnnoucementHoldReason,
+		ConvertDeposit,
+	>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
