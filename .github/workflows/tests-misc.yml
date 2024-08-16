@@ -151,8 +151,8 @@ jobs:
           mkdir -p $ARTIFACTS_DIR
           
           SKIP_WASM_BUILD=1 forklift time cargo check --locked --benches --all;
-          forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/$BENCH_TRIE_READ.json;
-          forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/$BENCH_NODE_IMPORT.json
+          forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/${BENCH_TRIE_READ/::/_}.json;
+          forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/${BENCH_NODE_IMPORT/::/_}.json
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
