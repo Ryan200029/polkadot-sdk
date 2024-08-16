@@ -151,8 +151,8 @@ jobs:
           mkdir -p $ARTIFACTS_DIR
           
           SKIP_WASM_BUILD=1 forklift time cargo check --locked --benches --all;
-          forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/${BENCH_TRIE_READ/::/_}.json;
-          forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/${BENCH_NODE_IMPORT/::/_}.json
+          forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/bench_trie_read_small.json;
+          forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/bench_transfer_keep_alive.json
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
@@ -266,3 +266,60 @@ jobs:
         run: |
           time forklift cargo build --locked -p westend-runtime --features metadata-hash
 
+  cargo-hfuzz:
+    timeout-minutes: 20
+    needs: [ set-image, check-metadata-hash ]
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      # max 10s per iteration, 60s per file
+      HFUZZ_RUN_ARGS: |
+        --exit_upon_crash
+        --exit_code_upon_crash 1
+        --timeout 10
+        --run_time 60
+
+      # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
+      # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
+      # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
+      # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
+      HFUZZ_BUILD_ARGS: |
+        --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
+        --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
+    steps:
+      - name: Run honggfuzz
+        run: |
+          cd substrate/primitives/arithmetic/fuzzer
+          forklift cargo hfuzz build
+          for target in $(cargo read-manifest | jq -r '.targets | .[] | .name'); 
+          do
+            forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; }; 
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
+          name: hfuzz-$GITHUB_SHA
+
+  cargo-check-each-crate:
+    timeout-minutes: 120
+    needs: [ set-image, check-metadata-hash ]
+    runs-on: ${{ matrix.os }}
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-D warnings"
+      CI_JOB_NAME: cargo-check-each-crate
+    strategy:
+      max-parallel: 6
+      matrix:
+        os: [ arc-runners-polkadot-sdk-beefy, macos-latest-xlarge ]
+        index: [ 1,2,3,4,5,6 ] # 6 parallel jobs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+      - name: script
+        run: |
+          export PYTHONUNBUFFERED=x time .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
