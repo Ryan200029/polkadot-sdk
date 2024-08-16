@@ -35,7 +35,7 @@ codecov-start:
     - .pipeline-stopper-artifacts
     - .run-immediately
   script:
-    - !reference [.codecov-check, script]
+    - !reference [ .codecov-check, script ]
     - >
       if [ "$CI_COMMIT_REF_NAME" != "master" ]; then
         codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
@@ -57,7 +57,7 @@ codecov-finish:
   needs:
     - test-linux-stable-codecov
   script:
-    - !reference [.codecov-check, script]
+    - !reference [ .codecov-check, script ]
     - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
@@ -83,7 +83,7 @@ test-linux-stable-codecov:
   parallel: 2
   script:
     # tools
-    - !reference [.codecov-check, script]
+    - !reference [ .codecov-check, script ]
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/
     # Place real test call here
@@ -250,46 +250,7 @@ test-rustdoc:
   script:
     - time cargo doc --workspace --all-features --no-deps
 
-test-node-metrics:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .collect-artifacts-short
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    # Build the required workers.
-    - cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
-    - mkdir -p artifacts
-    - time cargo test --profile testnet
-      --locked
-      --features=runtime-metrics -p polkadot-node-metrics > artifacts/log.txt
-
-test-deterministic-wasm:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-  # DAG
-  needs:
-    - job: test-frame-ui
-      artifacts: false
-  script:
-    # build runtime
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
-    # make checksum
-    - sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
-    - cargo clean
-    # build again
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
-    # confirm checksum
-    - sha256sum -c checksum.sha256
-
+# TODO: cleanup once .github/workflows/tests-misc.yml is tested comparing with master artifacts
 cargo-check-benches:
   stage: test
   artifacts:
@@ -316,7 +277,7 @@ cargo-check-benches:
       git merge --verbose --no-edit FETCH_HEAD;
       fi
       fi'
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .forklift-cache, before_script ]
   parallel: 2
   script:
     - mkdir -p ./artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
@@ -335,6 +296,7 @@ cargo-check-benches:
       ;;
       esac
 
+# TODO: cleanup once .github/workflows/tests-misc.yml is tested comparing with master artifacts
 node-bench-regression-guard:
   # it's not belong to `build` semantically, but dag jobs can't depend on each other
   # within the single stage - https://gitlab.com/gitlab-org/gitlab/-/issues/30632
@@ -360,7 +322,7 @@ node-bench-regression-guard:
       artifacts: true
   variables:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
-  before_script: [""]
+  before_script: [ "" ]
   script:
     - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
       echo "Couldn't find master artifacts";
@@ -371,37 +333,8 @@ node-bench-regression-guard:
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
     - "node-bench-regression-guard --reference artifacts/benches/master-*
       --compare-with artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA"
-  after_script: [""]
+  after_script: [ "" ]
 
-# if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
-# see ./docs/contributor/CONTRIBUTING.md#ui-tests
-test-frame-ui:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-  # DAG
-  needs:
-    - job: test-frame-examples-compile-to-wasm
-      artifacts: false
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: 1
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-    # Ensure we run the UI tests.
-    RUN_UI_TESTS: 1
-  script:
-    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
-    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
-    - time cargo test --locked -q --profile testnet -p xcm-procedural
-    - time cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
-    - time cargo test --locked -q --profile testnet -p sp-api-test
-    # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
-    - time cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
-    - cat /cargo_target_dir/debug/.fingerprint/memory_units-759eddf317490d2b/lib-memory_units.json || true
 
 # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
 quick-benchmarks:
@@ -437,29 +370,6 @@ quick-benchmarks-omni:
     - time cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
     - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
-test-frame-examples-compile-to-wasm:
-  # into one job
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-  # DAG
-  needs:
-    - job: test-full-crypto-feature
-      artifacts: false
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions"
-    RUST_BACKTRACE: 1
-  script:
-    - cd ./substrate/frame/examples/offchain-worker/
-    - cargo build --locked --target=wasm32-unknown-unknown --no-default-features
-    - cd ../basic
-    - cargo build --locked --target=wasm32-unknown-unknown --no-default-features
-  # FIXME
-  allow_failure: true
-
 test-linux-stable-int:
   stage: test
   extends:
@@ -480,49 +390,6 @@ test-linux-stable-int:
     - WASM_BUILD_NO_COLOR=1
       time cargo test -p staging-node-cli --release --locked -- --ignored
 
-# more information about this job can be found here:
-# https://github.com/paritytech/substrate/pull/6916
-check-tracing:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  script:
-    # with-tracing must be explicitly activated, we run a test to ensure this works as expected in both cases
-    - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features
-    - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features --features=with-tracing
-
-# Check that `westend-runtime` compiles with the `metadata-hash` feature enabled.
-check-metadata-hash:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  script:
-    - time cargo build --locked -p westend-runtime --features metadata-hash
-
-# more information about this job can be found here:
-# https://github.com/paritytech/substrate/pull/3778
-test-full-crypto-feature:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions"
-    RUST_BACKTRACE: 1
-  script:
-    - cd substrate/primitives/core/
-    - time cargo build --locked --no-default-features --features full_crypto
-    - cd ../application-crypto
-    - time cargo build --locked --no-default-features --features full_crypto
 
 cargo-check-each-crate:
   stage: test
@@ -550,9 +417,9 @@ cargo-check-each-crate-macos:
     # - .collect-artifacts
   before_script:
     # skip timestamp script, the osx bash doesn't support printf %()T
-    - !reference [.job-switcher, before_script]
-    - !reference [.rust-info-script, script]
-    - !reference [.pipeline-stopper-vars, script]
+    - !reference [ .job-switcher, before_script ]
+    - !reference [ .rust-info-script, script ]
+    - !reference [ .pipeline-stopper-vars, script ]
   variables:
     SKIP_WASM_BUILD: 1
   script:
