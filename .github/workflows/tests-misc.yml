@@ -34,7 +34,6 @@ jobs:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
     needs: [ set-image ]
-    if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
     container:
@@ -46,7 +45,8 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.1.7
+
       - name: script
         run: |
           cd substrate/primitives/core/
